@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: "traefik:v3.0"
+    command:
+      # - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+  nodejs:
+    container_name: node
+    image: node:19-alpine
+    user: node
+    command: node app.js --port=3000
+    volumes:
+      - ${PWD}:/home/node/project
+    working_dir: /home/node/project
+    labels:
+      traefik.enable: true
+      traefik.http.routers.nodejs.rule: Host(`nodejs.localhost`)
+      traefik.http.routers.nodejs.entrypoints: web
+      traefik.http.services.nodejs.loadbalancer.server.port: 3000
+  webserver:
+    image: nginx:alpine
+    container_name: webserver
+    restart: unless-stopped
+    tty: true
+    labels:
+      traefik.enable: true
+      traefik.http.routers.webserver.rule: "Host(`example.localhost`)"
+      traefik.http.routers.webserver.entrypoints: web
+  webserver2:
+    image: nginx:alpine
+    container_name: webserver2
+    restart: unless-stopped
+    tty: true
+    labels:
+      traefik.enable: true
+      traefik.http.routers.webserver2.rule: "Host(`example2.localhost`) || Host(`example3.localhost`)"
+      traefik.http.routers.webserver2.entrypoints: web
+  whoami:
+      image: "traefik/whoami"
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+        - "traefik.http.routers.whoami.entrypoints=web"
+  whoami2:
+    image: "traefik/whoami"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami2.rule=Host(`example.localhost`) && Path(`/whoami2`)"
+      - "traefik.http.routers.whoami2.entrypoints=web"
